@@ -13,7 +13,7 @@ This is a web scraping project designed to extract book details from the "Books 
 
 ## Project Structure
 ```
-book_scraper/
+ingestion/
 │
 ├── src/
 │   ├── process/
