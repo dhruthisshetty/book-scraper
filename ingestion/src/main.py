@@ -2,8 +2,7 @@ import json
 import logging
 from process.process import BookScraper
 
-def lambdaHandler(inputDA, context):
-    
+def lambda_handler(inputDA, context):
     try:
         # Extract scraper configuration
         scraper_config = inputDA.get('scraper_input', {})
@@ -13,9 +12,7 @@ def lambdaHandler(inputDA, context):
         # Setup logging
         logging.basicConfig(
             level=logging.INFO, 
-            format='%(asctime)s - %(levelname)s - Scraper: {} - ID: {} - %(message)s'.format(
-                scraper_name, run_scraper_id
-            )
+            format=f'%(asctime)s - %(levelname)s - Scraper: {scraper_name} - ID: {run_scraper_id} - %(message)s'
         )
         
         # Initialize scraper
@@ -45,7 +42,6 @@ def lambdaHandler(inputDA, context):
         logging.info(f"Scraping completed. Total books: {len(scraper.books_data)}")
         
         return response
-    
     except Exception as e:
         # Log and return error response
         logging.error(f"Scraping failed: {str(e)}")
@@ -64,18 +60,23 @@ def lambdaHandler(inputDA, context):
         return error_response
 
 def main():
-    
-    # Example input dictionary for local testing
-    inputDA = {
-        "scraper_input": {
-            "scraper_name": "csv_100",
-            "run_scraper_id": "100"
-        }
-    }
-    
-    # Call lambda handler for testing
-    result = lambdaHandler(inputDA, "")
-    print(json.dumps(result, indent=2))
+    try:
+        # Load configuration from run_scraper.json
+        with open('run_scraper.json', 'r') as config_file:
+            scraper_config = json.load(config_file)
+            
+        # Call lambda handler with loaded configuration
+        result = lambda_handler(scraper_config, "")
+        print(json.dumps(result, indent=2))
+    except FileNotFoundError:
+        print("Error: run_scraper.json file not found.")
+        exit(1)
+    except json.JSONDecodeError:
+        print("Error: Invalid JSON in run_scraper.json file.")
+        exit(1)
+    except Exception as e:
+        print(f"Error executing scraper: {str(e)}")
+        exit(1)
 
 if __name__ == "__main__":
     main()
