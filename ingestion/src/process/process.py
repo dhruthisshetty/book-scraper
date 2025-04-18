@@ -8,10 +8,9 @@ from urllib.parse import urljoin
 
 class BookScraper:
     def __init__(self, base_url='http://books.toscrape.com/'):
-
         self.base_url = base_url
         self.books_data = []
-
+        
         # Setup logging
         logging.basicConfig(
             filename='book_scraper.log', 
@@ -19,27 +18,48 @@ class BookScraper:
             format='%(asctime)s - %(levelname)s: %(message)s'
         )
         self.headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        
+        # Get latest GBP to USD exchange rate
+        self.exchange_rate = self._get_exchange_rate()
+        logging.info(f"Current GBP to USD exchange rate: {self.exchange_rate}")
     
-
+    def _get_exchange_rate(self):
+        """Fetch the current GBP to USD exchange rate from an API"""
+        try:
+            # Using Exchange Rate API (you might need to register for an API key)
+            response = requests.get('https://api.exchangerate-api.com/v4/latest/GBP')
+            data = response.json()
+            
+            # Get USD rate from the response
+            usd_rate = data['rates']['USD']
+            return usd_rate
+        except Exception as e:
+            logging.error(f"Failed to get exchange rate: {e}")
+            # Default fallback rate if API call fails
+            return 1.30  # Approximate GBP to USD rate
+    
     def _clean_price(self, price_str):
-
         try:
             # Remove non-numeric characters except decimal point
-            price = re.sub(r'[^\d.]', '', price_str)
-            return float(price)
+            price_gbp = re.sub(r'[^\d.]', '', price_str)
+            price_gbp = float(price_gbp)
+            
+            # Convert to USD
+            price_usd = price_gbp * self.exchange_rate
+            
+            return price_gbp, round(price_usd, 2)
         except (ValueError, TypeError):
             logging.error(f"Could not convert price: {price_str}")
-            return None
+            return None, None
 
     def _extract_book_details(self, book):
-
         try:
             # Title
             title = book.find('h3').find('a')['title']
 
-            # Price (with encoding fix)
+            # Price (with encoding fix and conversion)
             price_elem = book.find('div', class_='product_price').find('p', class_='price_color')
-            price = self._clean_price(price_elem.text) if price_elem else 0.0
+            price_gbp, price_usd = self._clean_price(price_elem.text) if price_elem else (0.0, 0.0)
 
             # Rating
             rating_class = book.find('p', class_='star-rating')['class'][1]
@@ -54,7 +74,8 @@ class BookScraper:
 
             return {
                 'Title': title,
-                'Price': price,
+                'Price_GBP': price_gbp,
+                'Price_USD': price_usd,
                 'Rating': rating,
                 'Availability': availability,
                 'URL': product_url
@@ -89,10 +110,8 @@ class BookScraper:
         logging.info(f"Scraping category: {category_url}")
         current_url = category_url
         
-        
         while current_url:
             try:
-                
                 response = requests.get(current_url)
                 response.raise_for_status()
                 soup = BeautifulSoup(response.text, 'html.parser')
@@ -109,12 +128,9 @@ class BookScraper:
                             self.books_data.append(book_details)
                             books_count += 1
                 
-                
-                
                 # Check for next page
                 next_link = soup.find('li', class_='next')
                 if next_link:
-                    
                     next_page = next_link.find('a')['href']
                     # Handle relative URLs correctly
                     if '/' in current_url:
@@ -129,9 +145,7 @@ class BookScraper:
                 logging.error(f"HTTP error occurred when scraping {current_url}: {e}")
                 current_url = None
     
-
     def save_to_csv(self, filename='books_data.csv'):
-
         try:
             if not self.books_data:
                 logging.warning("No books data to save.")
@@ -148,3 +162,9 @@ class BookScraper:
         except Exception as e:
             logging.error(f"Error saving to CSV: {e}")
             return False
+
+# Example usage
+if __name__ == "__main__":
+    scraper = BookScraper()
+    scraper.scrape_books()
+    scraper.save_to_csv()
