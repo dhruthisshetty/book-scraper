@@ -63,4 +63,5 @@ pytest src/tests/test.py
 - Requests
 - BeautifulSoup
 - Pandas
+- Power BI (for data visualization and analytics)
 
